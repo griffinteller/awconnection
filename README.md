@@ -1,4 +1,4 @@
-# abr-connection
+# abrconnection
 An interface between Python and Autonomous Battle Royale
 <br>
 <br>
