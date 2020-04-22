@@ -6,12 +6,12 @@ with open('README.md') as f:
 setuptools.setup(
     author="Griffin Teller",
     author_email="griffinteller@gmail.com",
-    name='abrconnection',
+    name='awconnection',
     license="MIT",
-    description='An interface between Python and Autonomous Battle Royale',
-    version='v0.0.3',
+    description='An interface between Python and AutonoWar',
+    version='v0.2.1',
     long_description=README,
-    url='https://github.com/griffinteller/abrconnection',
+    url='https://github.com/griffinteller/awconnection',
     packages=setuptools.find_packages(),
     python_requires=">=3.6",
     classifiers=[
