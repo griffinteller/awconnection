@@ -193,11 +193,14 @@ class Gyroscope(Sensor):
 
         self.forward = Vector3.from_dict(gyroscope_dict["forward"])
 
-        self.up = Vector3.from_dict(gyroscope_dict["up"]) \
-            * self.__info_object_reference.coordinates_are_inverted
+        self.up = Vector3.from_dict(gyroscope_dict["up"])
 
-        self.right = Vector3.from_dict(gyroscope_dict["right"]) \
-            * self.__info_object_reference.coordinates_are_inverted
+        self.right = Vector3.from_dict(gyroscope_dict["right"])
+
+        if self.__info_object_reference.coordinates_are_inverted:
+
+            self.up *= -1
+            self.right *= -1
 
         self.is_upside_down = gyroscope_dict["isUpsideDown"]
 
