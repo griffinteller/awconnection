@@ -273,7 +273,7 @@ class LiDAR(Sensor):
             # flips up-down and left-right
             for container in container_array[::-1]:
 
-                self.distance_matrix.append(container_array["array"][::-1])
+                self.distance_matrix.append(container["array"][::-1])
         else:
 
             for container in container_array:
