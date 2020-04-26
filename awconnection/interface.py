@@ -235,7 +235,7 @@ class Radar(Sensor):
 
             self.pings.append(Vector3.from_dict(ping))
 
-        self.it_ping = radar_dict["itPing"]
+        self.it_ping = Vector3.from_dict(radar_dict["itPing"])
 
 
 class LiDAR(Sensor):
@@ -279,7 +279,6 @@ class LiDAR(Sensor):
             for container in container_array:
 
                 self.distance_matrix.append(container["array"])
-
 
 class RobotInfo:
 
