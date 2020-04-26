@@ -308,6 +308,7 @@ class RobotConnection:
         self.__info_path = data_dir + "RobotState.json"
         self.__event_buffer = []  # where events that need to be sent are stored
         self.info = None
+        self.__info_dict = None
         self.__should_destroy = False  # should this connection end
         self.__event_buffer_lock = threading.Lock()  # lock for threads wanting to access event_buffer
         self.__info_lock = threading.Lock()
@@ -332,6 +333,9 @@ class RobotConnection:
         """
 
         self.info.coordinates_are_inverted = True
+
+        self.info.gyroscope = Gyroscope(self, self.__info_dict)  # flip coordinates immediately
+        self.info.lidar = LiDAR(self, self.__info_dict)
 
     def set_tire_torque(self, tire_name, torque):
 
@@ -420,9 +424,10 @@ class RobotConnection:
 
                 with self.__info_lock:
 
-                    info_dict = json.load(state_file)
+                    tmp_dict = json.load(state_file)
+                    self.__info_dict = tmp_dict
 
-                tmp_info = RobotInfo(info_dict) # to prevent a race condition
+                tmp_info = RobotInfo(self.__info_dict) # to prevent a race condition
                 self.info = tmp_info
 
 

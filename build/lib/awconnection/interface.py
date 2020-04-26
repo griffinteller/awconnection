@@ -107,15 +107,6 @@ class Vector3:
         return self / magnitude
 
 
-"""class Sensor:
-
-    def __init__(self, info_dict):
-        self.update(info_dict)
-
-    def update(self, info_dict):
-        pass"""
-
-
 class Altimeter(object):
 
     """Sensor determining the robot's altitude above the terrain.
@@ -130,10 +121,6 @@ class Altimeter(object):
 
         self.altitude = info_dict["altimeter"]["altitude"]
         self.__info_object_reference = info_object_reference
-
-    """def update(self, info_dict):
-
-        self.altitude = info_dict["altimeter"]["altitude"]"""
 
 
 class GPS(object):
@@ -152,11 +139,6 @@ class GPS(object):
 
         self.position = Vector3.from_dict(position_dict)
         self.__info_object_reference = info_object_reference
-
-    """def update(self, info_dict):
-
-        position_dict = info_dict["gps"]["position"]
-        self.position = Vector3.from_dict(position_dict)"""
 
 
 class Gyroscope(object):
@@ -194,23 +176,6 @@ class Gyroscope(object):
 
         self.is_upside_down = gyroscope_dict["isUpsideDown"]
 
-    """def update(self, info_dict):
-
-        gyroscope_dict = info_dict["gyroscope"]
-
-        self.forward = Vector3.from_dict(gyroscope_dict["forward"])
-
-        self.up = Vector3.from_dict(gyroscope_dict["up"])
-
-        self.right = Vector3.from_dict(gyroscope_dict["right"])
-
-        if self.__info_object_reference.coordinates_are_inverted:
-
-            self.up *= -1
-            self.right *= -1
-
-        self.is_upside_down = gyroscope_dict["isUpsideDown"]"""
-
 
 class Radar(object):
 
@@ -237,18 +202,6 @@ class Radar(object):
         self.it_ping = Vector3.from_dict(radar_dict["itPing"])
 
         self.__info_object_reference = info_object_reference
-
-    """def update(self, info_dict):
-
-        radar_dict = info_dict["radar"]
-
-        self.pings = []
-
-        for ping in radar_dict["pings"]:
-
-            self.pings.append(Vector3.from_dict(ping))
-
-        self.it_ping = Vector3.from_dict(radar_dict["itPing"])"""
 
 
 class LiDAR(object):
@@ -287,26 +240,6 @@ class LiDAR(object):
             for container in container_array:
                 self.distance_matrix.append(container["array"])
 
-    """def update(self, info_dict):
-
-        container_array = info_dict["lidar"]["distanceMatrix"]
-        """"""unity can't serialize 2D arrays (grr) so we have
-        to create an array of ArrayContainers, which each
-        each have a field "array" containing a row.""""""
-
-        self.distance_matrix = []
-
-        if self.__info_object_reference.coordinates_are_inverted:
-
-            # flips up-down and left-right
-            for container in container_array[::-1]:
-
-                self.distance_matrix.append(container["array"][::-1])
-        else:
-
-            for container in container_array:
-
-                self.distance_matrix.append(container["array"])"""
 
 class RobotInfo(object):
 
@@ -352,18 +285,6 @@ class RobotInfo(object):
         self.isIt = info_dict["isIt"]
         self.gamemode = info_dict["gameMode"]
 
-    """def update(self, info_dict):
-
-        self.altimeter.update(info_dict)
-        self.gps.update(info_dict)
-        self.gyroscope.update(info_dict)
-        self.lidar.update(info_dict)
-        self.radar.update(info_dict)
-
-        self.timestamp = info_dict["timestamp"]
-        self.isIt = info_dict["isIt"]
-        self.gamemode = info_dict["gameMode"]"""
-
 
 class RobotConnection:
 
@@ -387,6 +308,7 @@ class RobotConnection:
         self.__info_path = data_dir + "RobotState.json"
         self.__event_buffer = []  # where events that need to be sent are stored
         self.info = None
+        self.__info_dict = None
         self.__should_destroy = False  # should this connection end
         self.__event_buffer_lock = threading.Lock()  # lock for threads wanting to access event_buffer
         self.__info_lock = threading.Lock()
@@ -411,6 +333,9 @@ class RobotConnection:
         """
 
         self.info.coordinates_are_inverted = True
+
+        self.info.gyroscope = Gyroscope(self, self.__info_dict)  # flip coordinates immediately
+        self.info.lidar = LiDAR(self, self.__info_dict)
 
     def set_tire_torque(self, tire_name, torque):
 
@@ -499,9 +424,10 @@ class RobotConnection:
 
                 with self.__info_lock:
 
-                    info_dict = json.load(state_file)
+                    tmp_dict = json.load(state_file)
+                    self.__info_dict = tmp_dict
 
-                tmp_info = RobotInfo(info_dict) # to prevent a race condition
+                tmp_info = RobotInfo(self.__info_dict) # to prevent a race condition
                 self.info = tmp_info
 
 
