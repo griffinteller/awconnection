@@ -378,7 +378,7 @@ class RobotConnection:
         None
         """
         if self.info.coordinates_are_inverted:
-            bearing += -1
+            bearing *= -1
 
         self.__queue_event("SET steering " + tire_name + " " + str(bearing))
 
