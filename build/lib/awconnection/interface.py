@@ -290,6 +290,10 @@ class RobotConnection:
 
     """Class providing an interface between python and AutonoWar robots.
 
+    Attributes
+    ----------
+    info : RobotInfo
+        This robot's current information
     """
 
     __SEND_INTERVAL = 0.01  # in seconds
@@ -307,7 +311,7 @@ class RobotConnection:
         self.__queue_path = data_dir + "EventQueue"
         self.__info_path = data_dir + "RobotState.json"
         self.__event_buffer = []  # where events that need to be sent are stored
-        self.info = None
+        self.info = None # type: RobotInfo
         self.__info_dict = None
         self.__should_destroy = False  # should this connection end
         self.__event_buffer_lock = threading.Lock()  # lock for threads wanting to access event_buffer
@@ -334,8 +338,8 @@ class RobotConnection:
 
         self.info.coordinates_are_inverted = True
 
-        self.info.gyroscope = Gyroscope(self, self.__info_dict)  # flip coordinates immediately
-        self.info.lidar = LiDAR(self, self.__info_dict)
+        self.info.gyroscope = Gyroscope(self.info, self.__info_dict)  # flip coordinates immediately
+        self.info.lidar = LiDAR(self.info, self.__info_dict)
 
     def set_tire_torque(self, tire_name, torque):
 
@@ -429,7 +433,6 @@ class RobotConnection:
 
                 tmp_info = RobotInfo(self.__info_dict) # to prevent a race condition
                 self.info = tmp_info
-
 
             except (EnvironmentError, json.JSONDecodeError):
                 continue
