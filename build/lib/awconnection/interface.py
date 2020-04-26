@@ -107,16 +107,16 @@ class Vector3:
         return self / magnitude
 
 
-class Sensor:
+"""class Sensor:
 
     def __init__(self, info_dict):
         self.update(info_dict)
 
     def update(self, info_dict):
-        pass
+        pass"""
 
 
-class Altimeter(Sensor):
+class Altimeter(object):
 
     """Sensor determining the robot's altitude above the terrain.
 
@@ -128,16 +128,15 @@ class Altimeter(Sensor):
 
     def __init__(self, info_object_reference, info_dict):
 
-        self.altitude = None
-        self.__info_object_reference = info_object_reference
-        super().__init__(info_dict)
-
-    def update(self, info_dict):
-
         self.altitude = info_dict["altimeter"]["altitude"]
+        self.__info_object_reference = info_object_reference
+
+    """def update(self, info_dict):
+
+        self.altitude = info_dict["altimeter"]["altitude"]"""
 
 
-class GPS(Sensor):
+class GPS(object):
 
     """Sensor determining the robot's world position.
 
@@ -149,17 +148,18 @@ class GPS(Sensor):
 
     def __init__(self, info_object_reference, info_dict):
 
-        self.position = None
-        self.__info_object_reference = info_object_reference
-        super().__init__(info_dict)
+        position_dict = info_dict["gps"]["position"]
 
-    def update(self, info_dict):
+        self.position = Vector3.from_dict(position_dict)
+        self.__info_object_reference = info_object_reference
+
+    """def update(self, info_dict):
 
         position_dict = info_dict["gps"]["position"]
-        self.position = Vector3.from_dict(position_dict)
+        self.position = Vector3.from_dict(position_dict)"""
 
 
-class Gyroscope(Sensor):
+class Gyroscope(object):
 
     """Sensor determining the orientation of the robot.
 
@@ -180,14 +180,21 @@ class Gyroscope(Sensor):
 
     def __init__(self, info_object_reference, info_dict):
 
-        self.forward = None
-        self.up = None
-        self.right = None
-        self.is_upside_down = False
-        self.__info_object_reference = info_object_reference
-        super().__init__(info_dict)
+        gyroscope_dict = info_dict["gyroscope"]
 
-    def update(self, info_dict):
+        self.forward = Vector3.from_dict(gyroscope_dict["forward"])
+        self.up = Vector3.from_dict(gyroscope_dict["up"])
+        self.right = Vector3.from_dict(gyroscope_dict["right"])
+
+        self.__info_object_reference = info_object_reference
+
+        if self.__info_object_reference.coordinates_are_inverted:
+            self.up *= -1
+            self.right *= -1
+
+        self.is_upside_down = gyroscope_dict["isUpsideDown"]
+
+    """def update(self, info_dict):
 
         gyroscope_dict = info_dict["gyroscope"]
 
@@ -202,10 +209,10 @@ class Gyroscope(Sensor):
             self.up *= -1
             self.right *= -1
 
-        self.is_upside_down = gyroscope_dict["isUpsideDown"]
+        self.is_upside_down = gyroscope_dict["isUpsideDown"]"""
 
 
-class Radar(Sensor):
+class Radar(object):
 
     """Sensor determining the locations of other robots.
 
@@ -220,12 +227,18 @@ class Radar(Sensor):
 
     def __init__(self, info_object_reference, info_dict):
 
-        self.pings = None
-        self.it_ping = None
-        self.__info_object_reference = info_object_reference
-        super().__init__(info_dict)
+        radar_dict = info_dict["radar"]
 
-    def update(self, info_dict):
+        self.pings = []
+
+        for ping in radar_dict["pings"]:
+            self.pings.append(Vector3.from_dict(ping))
+
+        self.it_ping = Vector3.from_dict(radar_dict["itPing"])
+
+        self.__info_object_reference = info_object_reference
+
+    """def update(self, info_dict):
 
         radar_dict = info_dict["radar"]
 
@@ -235,10 +248,10 @@ class Radar(Sensor):
 
             self.pings.append(Vector3.from_dict(ping))
 
-        self.it_ping = Vector3.from_dict(radar_dict["itPing"])
+        self.it_ping = Vector3.from_dict(radar_dict["itPing"])"""
 
 
-class LiDAR(Sensor):
+class LiDAR(object):
 
     """Sensor determining the distance to obstacles in the world in the form of a spherical matrix of distances.
 
@@ -255,16 +268,31 @@ class LiDAR(Sensor):
 
     def __init__(self, info_object_reference, info_dict):
 
-        self.distance_matrix = None
         self.__info_object_reference = info_object_reference
-        super().__init__(info_dict)
-
-    def update(self, info_dict):
 
         container_array = info_dict["lidar"]["distanceMatrix"]
         """unity can't serialize 2D arrays (grr) so we have
         to create an array of ArrayContainers, which each
         each have a field "array" containing a row."""
+
+        self.distance_matrix = []
+
+        if self.__info_object_reference.coordinates_are_inverted:
+
+            # flips up-down and left-right
+            for container in container_array[::-1]:
+                self.distance_matrix.append(container["array"][::-1])
+        else:
+
+            for container in container_array:
+                self.distance_matrix.append(container["array"])
+
+    """def update(self, info_dict):
+
+        container_array = info_dict["lidar"]["distanceMatrix"]
+        """"""unity can't serialize 2D arrays (grr) so we have
+        to create an array of ArrayContainers, which each
+        each have a field "array" containing a row.""""""
 
         self.distance_matrix = []
 
@@ -278,9 +306,9 @@ class LiDAR(Sensor):
 
             for container in container_array:
 
-                self.distance_matrix.append(container["array"])
+                self.distance_matrix.append(container["array"])"""
 
-class RobotInfo:
+class RobotInfo(object):
 
     """Class containing information about the robot
 
@@ -324,7 +352,7 @@ class RobotInfo:
         self.isIt = info_dict["isIt"]
         self.gamemode = info_dict["gameMode"]
 
-    def update(self, info_dict):
+    """def update(self, info_dict):
 
         self.altimeter.update(info_dict)
         self.gps.update(info_dict)
@@ -334,7 +362,7 @@ class RobotInfo:
 
         self.timestamp = info_dict["timestamp"]
         self.isIt = info_dict["isIt"]
-        self.gamemode = info_dict["gameMode"]
+        self.gamemode = info_dict["gameMode"]"""
 
 
 class RobotConnection:
@@ -472,10 +500,10 @@ class RobotConnection:
                 with self.__info_lock:
 
                     info_dict = json.load(state_file)
-                    if self.info:
-                        self.info.update(info_dict)
-                    else:
-                        self.info = RobotInfo(info_dict)
+
+                tmp_info = RobotInfo(info_dict) # to prevent a race condition
+                self.info = tmp_info
+
 
             except (EnvironmentError, json.JSONDecodeError):
                 continue
