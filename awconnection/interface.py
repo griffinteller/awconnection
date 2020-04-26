@@ -336,7 +336,7 @@ class RobotConnection:
         None
         """
 
-        self.info.coordinates_are_inverted = True
+        self.info.coordinates_are_inverted = not self.info.coordinates_are_inverted
 
         self.info.gyroscope = Gyroscope(self.info, self.__info_dict)  # flip coordinates immediately
         self.info.lidar = LiDAR(self.info, self.__info_dict)
