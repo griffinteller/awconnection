@@ -431,8 +431,15 @@ class RobotConnection:
                     tmp_dict = json.load(state_file)
                     self.__info_dict = tmp_dict
 
-                tmp_info = RobotInfo(self.__info_dict) # to prevent a race condition
-                self.info = tmp_info
+                if self.info:
+
+                    tmp_info = RobotInfo(self.__info_dict) # to prevent a race condition
+                    tmp_info.coordinates_are_inverted = self.info.coordinates_are_inverted
+                    self.info = tmp_info
+
+                else:
+
+                    self.info = RobotInfo(self.__info_dict)
 
             except (EnvironmentError, json.JSONDecodeError):
                 continue

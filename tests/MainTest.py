@@ -13,11 +13,11 @@ r.set_tire_torque("FrontRight", 5000)
 
 time.sleep(3)
 
-r.flip_coordinates()
+#r.flip_coordinates()
 r.set_tire_steering("BackLeft", 0)
 r.set_tire_steering("BackRight", 0)
 r.set_tire_steering("FrontLeft", 20)
 r.set_tire_steering("FrontRight", 20)
-r.flip_coordinates()
+#r.flip_coordinates()
 
 r.disconnect()
