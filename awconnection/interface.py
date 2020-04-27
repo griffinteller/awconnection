@@ -6,13 +6,10 @@ The main interface module of awconnection.
 
 import threading
 import time
+import json
 import getpass
 import platform
-import json
 import math
-
-from awconnection.systemutil import safe_override_or_create_file_through_temp
-from awconnection.systemutil import safe_read_file
 
 
 class Vector3:
@@ -303,9 +300,6 @@ class RobotConnection:
     __GET_INTERVAL = 0.01
     __QUEUE_INTERVAL = 0.01
 
-
-    __TEMP_PATH_SUFFIX = "_tempAPI"
-
     def __init__(self):
 
         if platform.system() == "Windows":
@@ -316,29 +310,26 @@ class RobotConnection:
 
         self.__queue_path = data_dir + "EventQueue"
         self.__info_path = data_dir + "RobotState.json"
-        self.__id_path = data_dir + "LastEventId"
         self.__event_buffer = []  # where events that need to be sent are stored
         self.info = None # type: RobotInfo
         self.__info_dict = None
         self.__should_destroy = False  # should this connection end
         self.__event_buffer_lock = threading.Lock()  # lock for threads wanting to access event_buffer
         self.__info_lock = threading.Lock()
-        self.__next_id = 0
 
     def __queue_event(self, event_text):
 
         with self.__event_buffer_lock:
-            self.__event_buffer.append(str(self.__next_id) + " " + event_text + "\n")
+            self.__event_buffer.append(event_text + "\n")
 
-        self.__next_id += 1
-        #time.sleep(RobotConnection.__QUEUE_INTERVAL)
+        time.sleep(RobotConnection.__QUEUE_INTERVAL)
 
     def flip_coordinates(self):
 
         """Rotates the internal coordinate system of the robot 180 degrees around the forward axis.
 
         This can be helpful if your robot flips over and you want to continue driving with old code. This reverses
-        steering, torque, the gyroscope, and lidar.
+        steering, torque, and lidar.
 
         Returns
         -------
@@ -407,63 +398,54 @@ class RobotConnection:
 
         self.__should_destroy = True
 
-    def __get_event_queue_text(self, id):
-
-        if len(self.__event_buffer) == 0:
-
-            return ""
-
-        i = 0
-        with self.__event_buffer_lock:
-
-            while i < len(self.__event_buffer) \
-                    and int(self.__event_buffer[i].split(" ")[0]) <= id:
-
-                i += 1
-
-            self.__event_buffer = self.__event_buffer[i:]
-            return "".join(self.__event_buffer)
-
-    def __get_last_executed_id(self):
-
-        id_text = safe_read_file(self.__id_path)
-
-        if id_text == "":
-
-            id = -1
-
-        else:
-
-            id = int(id_text)
-
-        return id
-
     def __send_buffer_thread(self):
 
-        while len(self.__event_buffer) > 0 or not self.__should_destroy:
+        while len(self.__event_buffer) > 0 or not self.__should_destroy:  # continue until connection is ended
 
-            id = self.__get_last_executed_id()
+            try:  # in case game is currently cleaning file
+                queue_file = open(self.__queue_path, "a")
 
-            file_text = self.__get_event_queue_text(id)
+            except EnvironmentError:  # any sort of io error
+                continue  # try again until unity is done
 
-            safe_override_or_create_file_through_temp(file_text, self.__queue_path)
+            with self.__event_buffer_lock:  # acquire buffer lock
 
-            time.sleep(self.__SEND_INTERVAL)
+                for event in self.__event_buffer:
+                    queue_file.write(event)
+
+                self.__event_buffer = []  # reset buffer
+
+            queue_file.close()  # flush file buffer and hand over lock to game
+            time.sleep(RobotConnection.__SEND_INTERVAL)  # we don't need to do this too often (1-2 times per frame)
 
     def __get_robot_state_thread(self):
 
         while not self.__should_destroy:
 
-            info_text = safe_read_file(self.__info_path)
+            try:
 
-            self.__info_dict = json.loads(info_text)
-            tmp_info = RobotInfo(self.__info_dict)
+                state_file = open(self.__info_path, "r")
 
-            with self.__info_lock:
+                with self.__info_lock:
 
-                self.info = tmp_info
+                    tmp_dict = json.load(state_file)
+                    self.__info_dict = tmp_dict
 
-            time.sleep(self.__GET_INTERVAL)
+                if self.info:
+
+                    tmp_info = RobotInfo(self.__info_dict) # to prevent a race condition
+                    tmp_info.coordinates_are_inverted = self.info.coordinates_are_inverted
+                    self.info = tmp_info
+
+                else:
+
+                    self.info = RobotInfo(self.__info_dict)
+
+            except (EnvironmentError, json.JSONDecodeError):
+                continue
+
+            state_file.close()
+            time.sleep(RobotConnection.__GET_INTERVAL)
 
     def connect(self):
 
@@ -474,10 +456,8 @@ class RobotConnection:
         None
         """
 
-        self.__next_id = self.__get_last_executed_id() + 1
-
         send_thread = threading.Thread(target=self.__send_buffer_thread)
         get_thread = threading.Thread(target=self.__get_robot_state_thread)
         send_thread.start()
         get_thread.start()
-        time.sleep(2)
+        time.sleep(1)
