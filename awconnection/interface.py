@@ -10,6 +10,10 @@ import json
 import getpass
 import platform
 import math
+import win32pipe
+import win32file
+
+from . import utility
 
 
 class Vector3:
@@ -298,7 +302,12 @@ class RobotConnection:
 
     __SEND_INTERVAL = 0.01  # in seconds
     __GET_INTERVAL = 0.01
-    __QUEUE_INTERVAL = 0.01
+    __QUEUE_INTERVAL = 0.001
+
+    __INFO_PIPE_NAME = "RobotInfoPipe"
+    __EVENT_QUEUE_PIPE_NAME = "EventQueuePipe"
+
+    __EVENT_SEPARATOR = ";"
 
     def __init__(self):
 
@@ -308,19 +317,16 @@ class RobotConnection:
         else:
             data_dir = "/Users/" + getpass.getuser() + "/.local/share/ABR/"
 
-        self.__queue_path = data_dir + "EventQueue"
-        self.__info_path = data_dir + "RobotState.json"
         self.__event_buffer = []  # where events that need to be sent are stored
         self.info = None # type: RobotInfo
         self.__info_dict = None
         self.__should_destroy = False  # should this connection end
         self.__event_buffer_lock = threading.Lock()  # lock for threads wanting to access event_buffer
-        self.__info_lock = threading.Lock()
 
     def __queue_event(self, event_text):
 
         with self.__event_buffer_lock:
-            self.__event_buffer.append(event_text + "\n")
+            self.__event_buffer.append(event_text)
 
         time.sleep(RobotConnection.__QUEUE_INTERVAL)
 
@@ -400,52 +406,56 @@ class RobotConnection:
 
     def __send_buffer_thread(self):
 
-        while len(self.__event_buffer) > 0 or not self.__should_destroy:  # continue until connection is ended
+        event_queue_pipe = win32pipe.CreateNamedPipe(
 
-            try:  # in case game is currently cleaning file
-                queue_file = open(self.__queue_path, "a")
+            "\\\\.\\pipe\\" + self.__EVENT_QUEUE_PIPE_NAME,
+            win32pipe.PIPE_ACCESS_DUPLEX,
+            win32pipe.PIPE_TYPE_MESSAGE | win32pipe.PIPE_READMODE_BYTE | win32pipe.PIPE_WAIT,
+            1, 65536, 65536,
+            0,
+            None
 
-            except EnvironmentError:  # any sort of io error
-                continue  # try again until unity is done
+        )
 
-            with self.__event_buffer_lock:  # acquire buffer lock
+        win32pipe.ConnectNamedPipe(event_queue_pipe, None)
 
-                for event in self.__event_buffer:
-                    queue_file.write(event)
+        while len(self.__event_buffer) > 0 or not self.__should_destroy:
 
-                self.__event_buffer = []  # reset buffer
+            with self.__event_buffer_lock:
 
-            queue_file.close()  # flush file buffer and hand over lock to game
-            time.sleep(RobotConnection.__SEND_INTERVAL)  # we don't need to do this too often (1-2 times per frame)
+                message = self.__EVENT_SEPARATOR.join(self.__event_buffer) + "\n"
+                self.__event_buffer = []
+
+            win32file.WriteFile(event_queue_pipe, bytes(message, "ascii"))
+
+            time.sleep(self.__SEND_INTERVAL)
 
     def __get_robot_state_thread(self):
 
+        info_pipe = win32pipe.CreateNamedPipe(
+
+            "\\\\.\\pipe\\" + self.__INFO_PIPE_NAME,
+            win32pipe.PIPE_ACCESS_DUPLEX,
+            win32pipe.PIPE_TYPE_MESSAGE | win32pipe.PIPE_READMODE_BYTE | win32pipe.PIPE_WAIT,
+            1, 65536, 65536,
+            0,
+            None
+
+        )
+
+        win32pipe.ConnectNamedPipe(info_pipe, None)
+
         while not self.__should_destroy:
 
-            try:
+            info_text = utility.get_most_recent_message(info_pipe)
 
-                state_file = open(self.__info_path, "r")
+            tmp_dict = json.loads(info_text)
+            self.__info_dict = tmp_dict
 
-                with self.__info_lock:
+            tmp_info = RobotInfo(self.__info_dict)
+            self.info = tmp_info
 
-                    tmp_dict = json.load(state_file)
-                    self.__info_dict = tmp_dict
-
-                if self.info:
-
-                    tmp_info = RobotInfo(self.__info_dict) # to prevent a race condition
-                    tmp_info.coordinates_are_inverted = self.info.coordinates_are_inverted
-                    self.info = tmp_info
-
-                else:
-
-                    self.info = RobotInfo(self.__info_dict)
-
-            except (EnvironmentError, json.JSONDecodeError):
-                continue
-
-            state_file.close()
-            time.sleep(RobotConnection.__GET_INTERVAL)
+            time.sleep(self.__GET_INTERVAL)
 
     def connect(self):
 
@@ -460,4 +470,4 @@ class RobotConnection:
         get_thread = threading.Thread(target=self.__get_robot_state_thread)
         send_thread.start()
         get_thread.start()
-        time.sleep(1)
+        time.sleep(2)
