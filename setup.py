@@ -9,11 +9,16 @@ setuptools.setup(
     name='awconnection',
     license="MIT",
     description='An interface between Python and AutonoWar',
-    version='v0.3.0.1',
+    version='v0.3.0_1',
     long_description=README,
     url='https://github.com/griffinteller/awconnection',
     packages=setuptools.find_packages(),
     python_requires=">=3.6",
+    install_requires=[
+
+        "pywin32==227;platform_system=='Windows'"
+
+    ],
     classifiers=[
 
         'Development Status :: 2 - Pre-Alpha',
@@ -22,5 +27,6 @@ setuptools.setup(
         'Topic :: Software Development :: Libraries',
         'Topic :: Software Development :: Libraries :: Python Modules',
         'Intended Audience :: Education',
+
     ],
 )
