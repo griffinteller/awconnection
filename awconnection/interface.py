@@ -444,11 +444,9 @@ class RobotConnection:
 
             fifo.stream.write(message)
 
+            fifo.temp_close()
             time.sleep(self.__SEND_INTERVAL)
-
-        fifo.temp_close()
-        fifo.clean_close()
-        fifo.re_init()
+            fifo.re_init()
 
     def __get_robot_state_thread_windows(self):
 
@@ -501,8 +499,6 @@ class RobotConnection:
             self.info = tmp_info
 
             time.sleep(self.__GET_INTERVAL)
-
-        fifo.clean_close()
 
     def connect(self):
 

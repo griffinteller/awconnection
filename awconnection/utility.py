@@ -6,7 +6,8 @@ if platform.system() == "Windows":
     import win32file
 
 
-MESSAGE_SEPARATOR = b";"
+MESSAGE_SEPARATOR_BYTES = b";"
+MESSAGE_SEPARATOR_STR = ";"
 
 
 class PosixFifo(object):
@@ -29,11 +30,6 @@ class PosixFifo(object):
 
         self.stream = open(self.__path, mode)
 
-    def clean_close(self):
-
-        self.stream.close()
-        os.unlink(self.__path)
-
     def temp_close(self):
 
         self.stream.close()
@@ -50,8 +46,7 @@ class PosixFifo(object):
 
         except OSError:
 
-            os.unlink(self.__path)
-            os.mkfifo(self.__path)
+            pass
 
 
 def get_most_recent_message_windows(pipe_handle):
@@ -69,13 +64,13 @@ def get_most_recent_message_windows(pipe_handle):
     """
 
     pipe_message_text = win32file.ReadFile(pipe_handle, 64 * 1024)[1]
-    pipe_messages = pipe_message_text.split(MESSAGE_SEPARATOR)
+    pipe_messages = pipe_message_text.split(MESSAGE_SEPARATOR_BYTES)
 
     if len(pipe_messages) == 0:
 
         return b""
 
-    elif len(pipe_messages[-1]) == 0 or pipe_messages[-1][-1] != MESSAGE_SEPARATOR:
+    elif len(pipe_messages[-1]) == 0 or pipe_messages[-1][-1] != MESSAGE_SEPARATOR_BYTES:
 
         return pipe_messages[-2]
 
@@ -99,12 +94,16 @@ def get_most_recent_message_posix(fifo):
     """
 
     pipe_message_text = fifo.stream.read()
-    pipe_messages = pipe_message_text.split(str(MESSAGE_SEPARATOR))
+    pipe_messages = pipe_message_text.split(MESSAGE_SEPARATOR_STR)
 
     if len(pipe_messages) == 0:
 
         return ""
 
+    elif len(pipe_messages) == 1:
+
+        return pipe_messages[0]
+
     else:
 
-        return pipe_messages[-1]
+        return pipe_messages[-2]
