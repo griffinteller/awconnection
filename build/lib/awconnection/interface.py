@@ -303,7 +303,7 @@ class RobotConnection:
     """
 
     __SEND_INTERVAL = 0.01  # in seconds
-    __GET_INTERVAL = 0.01
+    __GET_INTERVAL = 0.005
     __QUEUE_INTERVAL = 0.001
 
     __INFO_PIPE_NAME = "RobotInfoPipe"
@@ -322,8 +322,11 @@ class RobotConnection:
         self.__event_buffer = []  # where events that need to be sent are stored
         self.info = None # type: RobotInfo
         self.__info_dict = None
+        self.__hidden_dict = None
+        self.__hidden_info = None
         self.__should_destroy = False  # should this connection end
         self.__event_buffer_lock = threading.Lock()  # lock for threads wanting to access event_buffer
+        self.__info_coherent_lock = False  # allows user to prevent info from being updated
 
     def __queue_event(self, event_text):
 
@@ -428,7 +431,9 @@ class RobotConnection:
                 message = self.__EVENT_SEPARATOR.join(self.__event_buffer) + "\n"
                 self.__event_buffer = []
 
-            win32file.WriteFile(event_queue_pipe, bytes(message, "ascii"))
+            if message != "\n":
+
+                win32file.WriteFile(event_queue_pipe, bytes(message, "ascii"))
 
             time.sleep(self.__SEND_INTERVAL)
 
@@ -442,13 +447,13 @@ class RobotConnection:
                 message = self.__EVENT_SEPARATOR.join(self.__event_buffer) + "\n"
                 self.__event_buffer = []
 
-            fifo.stream.write(message)
+            if message != "\n":
 
+                fifo.stream.write(message)
+
+            fifo.temp_close()
             time.sleep(self.__SEND_INTERVAL)
-
-        fifo.temp_close()
-        fifo.clean_close()
-        fifo.re_init()
+            fifo.re_init()
 
     def __get_robot_state_thread_windows(self):
 
@@ -481,6 +486,20 @@ class RobotConnection:
 
             time.sleep(self.__GET_INTERVAL)
 
+    def lock_info(self):
+
+        self.__info_coherent_lock = True
+
+        self.__hidden_info = self.info
+        self.__hidden_dict = self.__info_dict
+
+    def unlock_info(self):
+
+        self.info = self.__hidden_info
+        self.__info_dict = self.__hidden_dict
+
+        self.__info_coherent_lock = False
+
     def __get_robot_state_thread_posix(self):
 
         fifo = utility.PosixFifo(self.__INFO_PIPE_NAME, "r")
@@ -489,20 +508,27 @@ class RobotConnection:
 
             info_text = utility.get_most_recent_message_posix(fifo)
 
-            tmp_dict = json.loads(info_text)
-            self.__info_dict = tmp_dict
+            if info_text != "":
 
-            tmp_info = RobotInfo(self.__info_dict)
+                tmp_dict = json.loads(info_text)
 
-            if self.info:
+                tmp_info = RobotInfo(tmp_dict)
 
-                tmp_info.coordinates_are_inverted = self.info.coordinates_are_inverted
+                if self.info:
 
-            self.info = tmp_info
+                    tmp_info.coordinates_are_inverted = self.info.coordinates_are_inverted
+
+                if self.__info_coherent_lock:
+
+                    self.__hidden_info = tmp_info
+                    self.__hidden_dict = tmp_dict
+
+                else:
+
+                    self.info = tmp_info
+                    self.__info_dict = tmp_dict
 
             time.sleep(self.__GET_INTERVAL)
-
-        fifo.clean_close()
 
     def connect(self):
 

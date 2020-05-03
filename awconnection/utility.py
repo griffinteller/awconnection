@@ -98,12 +98,12 @@ def get_most_recent_message_posix(fifo):
 
     if len(pipe_messages) == 0:
 
-        return ""
+        return ""  # reached end of file
 
     elif len(pipe_messages) == 1:
 
-        return pipe_messages[0]
+        return ""  # something funky happened
 
     else:
 
-        return pipe_messages[-2]
+        return pipe_messages[-2] # every message ends with a semicolon, so last string is just and empty string
