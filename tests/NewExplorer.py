@@ -32,7 +32,7 @@ is_in_canyon = False
 
 pos = robot.info.gps.position
 last_gps = np.array([pos.x, pos.y, pos.z])
-start_maps_over = True
+start_maps_over = False
 
 last_max_speed = 0
 

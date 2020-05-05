@@ -320,13 +320,20 @@ class RobotConnection:
             self.__platform = "POSIX"
 
         self.__event_buffer = []  # where events that need to be sent are stored
+        self.__event_buffer_lock = threading.Lock()  # lock for threads wanting to access event_buffer
+
         self.info = None # type: RobotInfo
         self.__info_dict = None
-        self.__hidden_dict = None
-        self.__hidden_info = None
-        self.__should_destroy = False  # should this connection end
-        self.__event_buffer_lock = threading.Lock()  # lock for threads wanting to access event_buffer
+
         self.__info_coherent_lock = False  # allows user to prevent info from being updated
+        self.__hidden_dict = None # where state is stored while info is locked
+        self.__hidden_info = None
+
+        self.__should_destroy = False  # should this connection end
+
+        self.__connection_lock = threading.Condition()
+        self.__send_connected = False
+        self.__get_connected = False
 
     def __queue_event(self, event_text):
 
@@ -424,6 +431,11 @@ class RobotConnection:
 
         win32pipe.ConnectNamedPipe(event_queue_pipe, None)
 
+        self.__connection_lock.acquire()
+        self.__send_connected = True
+        self.__connection_lock.notify_all()
+        self.__connection_lock.release()
+
         while len(self.__event_buffer) > 0 or not self.__should_destroy:
 
             with self.__event_buffer_lock:
@@ -440,6 +452,12 @@ class RobotConnection:
     def __send_buffer_thread_posix(self):
 
         fifo = utility.PosixFifo(self.__EVENT_QUEUE_PIPE_NAME, "w")
+
+        self.__connection_lock.acquire()
+        self.__send_connected = True
+        self.__connection_lock.notify_all()
+        self.__connection_lock.release()
+
         while len(self.__event_buffer) > 0 or not self.__should_destroy:
 
             with self.__event_buffer_lock:
@@ -483,6 +501,13 @@ class RobotConnection:
                 tmp_info.coordinates_are_inverted = self.info.coordinates_are_inverted
 
             self.info = tmp_info
+
+            if not self.__get_connected:
+
+                self.__connection_lock.acquire()
+                self.__get_connected = True
+                self.__connection_lock.notify_all()
+                self.__connection_lock.release()
 
             time.sleep(self.__GET_INTERVAL)
 
@@ -528,6 +553,13 @@ class RobotConnection:
                     self.info = tmp_info
                     self.__info_dict = tmp_dict
 
+            if not self.__get_connected:
+
+                self.__connection_lock.acquire()
+                self.__get_connected = True
+                self.__connection_lock.notify_all()
+                self.__connection_lock.release()
+
             time.sleep(self.__GET_INTERVAL)
 
     def connect(self):
@@ -539,9 +571,11 @@ class RobotConnection:
         None
         """
 
+        self.__connection_lock.acquire()
+
         if self.__platform == "Windows":
 
-            send_thread = threading.Thread(target=self.__send_buffer_thread_windows)
+            send_thread = threading.Thread(target=self.__send_buffer_thread_windows,)
             get_thread = threading.Thread(target=self.__get_robot_state_thread_windows)
 
         else:
@@ -551,4 +585,8 @@ class RobotConnection:
 
         send_thread.start()
         get_thread.start()
-        time.sleep(1)
+
+        while not self.__send_connected or not self.__get_connected:
+            self.__connection_lock.wait()
+
+        self.__connection_lock.release()
