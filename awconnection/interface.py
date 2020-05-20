@@ -144,6 +144,7 @@ class GPS(object):
         position_dict = info_dict["gps"]["position"]
 
         self.position = Vector3.from_dict(position_dict)
+        self.velocity = Vector3.from_dict(info_dict["gps"]["velocity"])
         self.__info_object_reference = info_object_reference
 
 
@@ -288,7 +289,7 @@ class RobotInfo(object):
         self.radar = Radar(self, info_dict)
 
         self.timestamp = info_dict["timestamp"]
-        self.isIt = info_dict["isIt"]
+        self.is_it = info_dict["isIt"]
         self.gamemode = info_dict["gameMode"]
 
 
@@ -306,9 +307,6 @@ class RobotConnection:
     __GET_INTERVAL = 0.005
     __QUEUE_INTERVAL = 0.001
 
-    __INFO_PIPE_NAME = "RobotInfoPipe"
-    __EVENT_QUEUE_PIPE_NAME = "EventQueuePipe"
-
     __EVENT_SEPARATOR = ";"
 
     def __init__(self):
@@ -324,6 +322,9 @@ class RobotConnection:
 
         self.info = None # type: RobotInfo
         self.__info_dict = None
+
+        self.__INFO_PIPE_NAME = "RobotInfoPipe"
+        self.__EVENT_QUEUE_PIPE_NAME = "EventQueuePipe"
 
         self.__info_coherent_lock = False  # allows user to prevent info from being updated
         self.__hidden_dict = None # where state is stored while info is locked
@@ -562,7 +563,7 @@ class RobotConnection:
 
             time.sleep(self.__GET_INTERVAL)
 
-    def connect(self):
+    def connect(self, pipe_index: int = 0):
 
         """Starts the connection to AutonoWar.
 
@@ -572,6 +573,8 @@ class RobotConnection:
         """
 
         self.__connection_lock.acquire()
+        self.__INFO_PIPE_NAME += str(pipe_index)
+        self.__EVENT_QUEUE_PIPE_NAME += str(pipe_index)
 
         if self.__platform == "Windows":
 

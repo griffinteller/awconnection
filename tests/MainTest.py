@@ -2,30 +2,30 @@ from awconnection import RobotConnection
 import time
 
 r = RobotConnection()
-r.connect()
+r.connect(1)
 
+
+"""def set_steering(bearing):
+
+    r.set_tire_steering("1", bearing)
+    r.set_tire_steering("2", bearing)"""
+
+
+def set_four_wheel_torque(torque):
+
+    r.set_tire_torque("1", torque)
+    r.set_tire_torque("3", torque)
+    r.set_tire_torque("2", -torque)
+    r.set_tire_torque("4", -torque)
+
+i = 1
 while True:
 
-    r.lock_info()
-
-    print(r.info.timestamp)
-
-    r.unlock_info()
-
-    """now_pos = info.gps.position
-    now_time = info.timestamp
-
-    delta_millis = now_time - last_time
-
-    if (delta_millis >= 1):
-
-        speed = (now_pos - last_pos).magnitude() / delta_millis * 1000
-        latency = str(time.time() * 1000 - now_time)
-        print("SPEED: " + str(speed))
-        print("LATENCY: " + latency)
-
-
-        last_pos = now_pos
-        last_time = now_time"""
+    r.set_tire_steering("1", 10 * i)
+    r.set_tire_steering("2", 10 * i)
+    r.set_tire_steering("3", 0)
+    r.set_tire_steering("4", 0)
+    i*=-1
+    time.sleep(0.3)
 
 r.disconnect()
