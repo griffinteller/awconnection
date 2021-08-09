@@ -16,7 +16,7 @@ setuptools.setup(
     python_requires=">=3.6",
     install_requires=[
 
-        "pywin32==227;platform_system=='Windows'"
+        "pywin32==301;platform_system=='Windows'"
 
     ],
     classifiers=[
