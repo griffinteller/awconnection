@@ -1,4 +1,8 @@
 # AutonoWar Connection
+
+**IMPORTANT: awconnection has been moved to the main autonowar repo. This repo is now deprecated.**
+
+
 An interface between Python and AutonoWar
 <br>
 <br>
